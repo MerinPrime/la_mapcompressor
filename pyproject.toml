@@ -1,9 +1,23 @@
 [project]
 name = "mapcompressor"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.14"
+description = "Map serialization algorithm for improved compression"
+requires-python = ">=3.12"
+readme = {file = "README.md", content-type = 'md'}
+license = {file = "LICENSE"}
+authors = [
+    {name = "MerinPrime"}
+]
+
 dependencies = [
     "lzstring>=1.0.4",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14",
+]
+
+[project.urls]
+Repository = "https://github.com/MerinPrime/la_mapcompressor"
+Issues = "https://github.com/MerinPrime/la_mapcompressor/issues"

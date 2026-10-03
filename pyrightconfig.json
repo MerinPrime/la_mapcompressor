@@ -1,0 +1,9 @@
+{
+  "pythonVersion": "3.12",
+  "venvPath": ".",
+  "venv": ".venv",
+  "analysis": {
+    "autoSearchPaths": false,
+    "useLibraryCodeForTypes": true
+  }
+}

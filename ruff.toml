@@ -1,0 +1,68 @@
+target-version = "py312"
+exclude = [".git", ".ruff_cache", ".venv"]
+
+[format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[lint]
+select = [
+  "E",
+  "W",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "C4",
+  "SIM",
+  "PTH",
+  "RUF",
+  "FBT",
+  "Q",
+  "ANN",
+  "TYP",
+  "RET505",
+  "COM812",
+  "D300",
+  "TC001",
+  "TC002",
+  "TC003",
+  "TC005",
+  "TC007",
+  "ASYNC",
+  "W293",
+]
+ignore = [
+  "RUF006",
+  "SIM105",
+  "E501",
+  "SIM108",
+  "FBT001",
+  "E741",
+  "ANN002",
+  "ANN003",
+  "ANN401",
+  "RUF059",
+  "RUF029",
+
+  "ISC001",
+  "COM812",
+  "Q000",
+  "Q001",
+  "Q002",
+  "Q003",
+  "W191",
+]
+
+[lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "single"
+multiline-quotes = "double"
+
+[lint.flake8-annotations]
+mypy-init-return = true
+suppress-none-returning = false
+suppress-dummy-args = false
+allow-star-arg-any = true
