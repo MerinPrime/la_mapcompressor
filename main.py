@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src.formats.graphv1 import graphv1_compress, graphv1_decompress
 from src.formats.graphv2 import graphv2_compress, graphv2_decompress
+from src.formats.graphv4 import graphv4_compress, graphv4_decompress
 from src.formats.raw import raw_load, raw_save
 from src.map import GameMap
 
@@ -37,6 +38,7 @@ def handle_map(game_map: GameMap):
         ('raw', raw_save, raw_load),
         ('graphv2', graphv2_compress, graphv2_decompress),
         ('graphv1', graphv1_compress, graphv1_decompress),
+        ('graphv4', graphv4_compress, graphv4_decompress),
     ]
 
     print('VALIDATION')
