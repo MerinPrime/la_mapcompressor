@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logic Arrows Map Compressor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <style>
+      :root {
+        --bg: #121417;
+        --card: #1c1f24;
+        --border: #2e343d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --accent: #388bfd;
+        --accent-hover: #58a6ff;
+        --success: #3fb950;
+        --danger: #f85149;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        padding: 24px 16px;
+        display: flex;
+        justify-content: center;
+      }
+      .container {
+        width: 100%;
+        max-width: 800px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      h1 {
+        font-size: 20px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .badge {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: var(--border);
+        color: var(--muted);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 12px;
+      }
+      button.tab-btn {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button.tab-btn.active {
+        background: var(--border);
+        color: var(--text);
+        font-weight: 600;
+      }
+      label {
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      textarea {
+        width: 100%;
+        height: 120px;
+        background: #0d1117;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 10px;
+        font-size: 12px;
+        resize: vertical;
+        outline: none;
+      }
+      textarea:focus {
+        border-color: var(--accent);
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      button.action-btn {
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      button.action-btn:hover {
+        background: var(--accent-hover);
+      }
+      .stats {
+        font-size: 12px;
+        color: var(--success);
+        font-weight: 600;
+      }
+      .error {
+        font-size: 12px;
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Logic Arrows Compressor</h1>
+
+      <div class="card">
+        <div class="tabs">
+          <button
+            class="tab-btn active"
+            id="tab-comp-btn"
+            onclick="setTab('compress')"
+          >
+            Сжать (Обычная ➔ Оптимизированная)
+          </button>
+          <button
+            class="tab-btn"
+            id="tab-decomp-btn"
+            onclick="setTab('decompress')"
+          >
+            Распаковать (Оптимизированная ➔ Обычная)
+          </button>
+        </div>
+
+        <!-- Режим сжатия -->
+        <div
+          id="compress-view"
+          style="display: flex; flex-direction: column; gap: 12px"
+        >
+          <div>
+            <label>Обычная схема из игры (Base64):</label>
+            <textarea
+              id="comp-input"
+              placeholder="Вставьте строку карты из игры сюда..."
+            ></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="action-btn" onclick="processCompress()">
+              Сжать
+            </button>
+            <div id="comp-stats" class="stats"></div>
+          </div>
+
+          <div>
+            <label>Оптимизированная схема (Base64):</label>
+            <textarea
+              id="comp-output"
+              readonly
+              placeholder="Результат сжатия появится здесь..."
+            ></textarea>
+          </div>
+          <button
+            class="action-btn"
+            style="align-self: flex-start; background: var(--border)"
+            onclick="copyToClipboard('comp-output')"
+          >
+            Скопировать результат
+          </button>
+        </div>
+
+        <!-- Режим распаковки -->
+        <div
+          id="decompress-view"
+          style="display: none; flex-direction: column; gap: 12px"
+        >
+          <div>
+            <label>Оптимизированная схема (Base64):</label>
+            <textarea
+              id="decomp-input"
+              placeholder="Вставьте сжатую строку сюда..."
+            ></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="action-btn" onclick="processDecompress()">
+              Распаковать
+            </button>
+            <div id="decomp-stats" class="stats"></div>
+          </div>
+
+          <div>
+            <label>Обычная схема для игры (Base64):</label>
+            <textarea
+              id="decomp-output"
+              readonly
+              placeholder="Восстановленная строка карты появится здесь..."
+            ></textarea>
+          </div>
+          <button
+            class="action-btn"
+            style="align-self: flex-start; background: var(--border)"
+            onclick="copyToClipboard('decomp-output')"
+          >
+            Скопировать результат
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ==========================================
+      // 1. BUFFER & BIT UTILITIES
+      // ==========================================
+      class ByteBuffer {
+        constructor(data = new Uint8Array(0)) {
+          this.data = data instanceof Uint8Array ? data : new Uint8Array(data);
+          this.writeBytes = [];
+          this.offset = 0;
+        }
+        writeUint8(val) {
+          this.writeBytes.push(val & 0xff);
+        }
+        writeVarint32(val) {
+          val = val >>> 0;
+          while (val >= 0x80) {
+            this.writeBytes.push((val & 0x7f) | 0x80);
+            val >>>= 7;
+          }
+          this.writeBytes.push(val);
+        }
+        readUint8() {
+          return this.data[this.offset++];
+        }
+        readVarint32() {
+          let val = 0,
+            shift = 0;
+          while (true) {
+            const b = this.readUint8();
+            val |= (b & 0x7f) << shift;
+            if (!(b & 0x80)) return val >>> 0;
+            shift += 7;
+          }
+        }
+        getBytes() {
+          return new Uint8Array(this.writeBytes);
+        }
+      }
+
+      function zigzagEncode(v) {
+        return ((v << 1) ^ (v >> 31)) >>> 0;
+      }
+      function zigzagDecode(v) {
+        return (v >>> 1) ^ -(v & 1);
+      }
+
+      // ==========================================
+      // 2. GEOMETRY & TYPES
+      // ==========================================
+      const ROTATION_MATRICES = [
+        { fx: 0, fy: 1, sx: 1, sy: 0 },
+        { fx: -1, fy: 0, sx: 0, sy: 1 },
+        { fx: 0, fy: -1, sx: -1, sy: 0 },
+        { fx: 1, fy: 0, sx: 0, sy: -1 },
+      ];
+
+      function getRelativePosition(
+        x,
+        y,
+        rotation,
+        flipped,
+        forward = -1,
+        sideways = 0,
+      ) {
+        const m = ROTATION_MATRICES[rotation];
+        if (flipped) sideways = -sideways;
+        return [
+          x + forward * m.fx + sideways * m.sx,
+          y + forward * m.fy + sideways * m.sy,
+        ];
+      }
+
+      const ArrowType = {
+        EMPTY: 0,
+        ARROW: 1,
+        SOURCE: 2,
+        BLOCKER: 3,
+        DELAY: 4,
+        DETECTOR: 5,
+        SPLITTER_UP_DOWN: 6,
+        SPLITTER_UP_RIGHT: 7,
+        SPLITTER_UP_RIGHT_LEFT: 8,
+        IMPULSE: 9,
+        BLUE_ARROW: 10,
+        DIAGONAL_ARROW: 11,
+        SPLITTER_UP_UP: 12,
+        SPLITTER_RIGHT_UP: 13,
+        SPLITTER_UP_DIAGONAL: 14,
+        LOGIC_NOT: 15,
+        LOGIC_AND: 16,
+        LOGIC_XOR: 17,
+        LATCH: 18,
+        FLIP_FLOP: 19,
+        RANDOM: 20,
+        BUTTON: 21,
+        LEVEL_SOURCE: 22,
+        LEVEL_TARGET: 23,
+        DIRECTIONAL_BUTTON: 24,
+        WALL: 25,
+      };
+
+      const ARROW_RELATIONS = {
+        1: [[-1, 0]],
+        3: [[-1, 0]],
+        4: [[-1, 0]],
+        5: [[-1, 0]],
+        15: [[-1, 0]],
+        16: [[-1, 0]],
+        17: [[-1, 0]],
+        18: [[-1, 0]],
+        19: [[-1, 0]],
+        20: [[-1, 0]],
+        22: [[-1, 0]],
+        24: [[-1, 0]],
+        2: [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ],
+        9: [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ],
+        21: [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ],
+        25: [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ],
+        6: [
+          [-1, 0],
+          [1, 0],
+        ],
+        7: [
+          [-1, 0],
+          [0, 1],
+        ],
+        8: [
+          [0, -1],
+          [-1, 0],
+          [0, 1],
+        ],
+        10: [[-2, 0]],
+        11: [[-1, 1]],
+        12: [
+          [-1, 0],
+          [-2, 0],
+        ],
+        13: [
+          [0, 1],
+          [-2, 0],
+        ],
+        14: [
+          [-1, 0],
+          [-1, 1],
+        ],
+        0: [],
+        23: [],
+      };
+
+      function getRelations(type) {
+        return ARROW_RELATIONS[type] || [];
+      }
+      function getTarget(x, y, rot, flip, rel) {
+        return getRelativePosition(x, y, rot, flip, rel[0], rel[1]);
+      }
+
+      // ==========================================
+      // 3. MAP & GRAPH STRUCTURE
+      // ==========================================
+      const CHUNK_SIZE = 16;
+
+      class Arrow {
+        constructor(type, rotation, flipped, globalX, globalY) {
+          this.type = type;
+          this.rotation = rotation;
+          this.flipped = flipped;
+          this.globalX = globalX;
+          this.globalY = globalY;
+        }
+      }
+
+      class Chunk {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.arrows = new Map();
+        }
+        setArrow(lx, ly, arrow) {
+          this.arrows.set(`${lx},${ly}`, arrow);
+        }
+      }
+
+      class GameMap {
+        constructor() {
+          this.chunks = new Map();
+        }
+        getOrCreateChunk(x, y) {
+          const k = `${x},${y}`;
+          if (!this.chunks.has(k)) {
+            this.chunks.set(k, new Chunk(x, y));
+          }
+          return this.chunks.get(k);
+        }
+      }
+
+      class GraphNode {
+        constructor(arrow) {
+          this.arrow = arrow;
+          this.connections = [];
+          this.backConnections = [];
+        }
+      }
+
+      class Graph {
+        constructor(map) {
+          this.nodes = new Map();
+          for (const chunk of map.chunks.values()) {
+            for (const arrow of chunk.arrows.values()) {
+              this.nodes.set(
+                `${arrow.globalX},${arrow.globalY}`,
+                new GraphNode(arrow),
+              );
+            }
+          }
+          for (const node of this.nodes.values()) {
+            const a = node.arrow;
+            for (const rel of getRelations(a.type)) {
+              const [tx, ty] = getTarget(
+                a.globalX,
+                a.globalY,
+                a.rotation,
+                a.flipped,
+                rel,
+              );
+              const target = this.nodes.get(`${tx},${ty}`);
+              if (target) {
+                node.connections.push(target);
+                target.backConnections.push(node);
+              }
+            }
+          }
+        }
+      }
+
+      // ==========================================
+      // 4. GRAPH V4 ENGINE
+      // ==========================================
+      const ESCAPE = 255;
+      const TWO_BYTE_RANKS = 128;
+
+      function getRoots(graph) {
+        const unvisited = new Set(graph.nodes.values());
+        const roots = [];
+
+        function mark(start) {
+          const stack = [start];
+          while (stack.length) {
+            const n = stack.pop();
+            if (!unvisited.has(n)) continue;
+            unvisited.delete(n);
+            for (const c of n.connections) stack.push(c);
+          }
+        }
+
+        const cmpPos = (a, b) =>
+          a.arrow.globalX !== b.arrow.globalX
+            ? a.arrow.globalX - b.arrow.globalX
+            : a.arrow.globalY - b.arrow.globalY;
+
+        const all = Array.from(graph.nodes.values());
+        const mainRoots = all
+          .filter((n) => !n.backConnections.length)
+          .sort(cmpPos);
+        const fallback = [...all].sort(cmpPos);
+
+        for (const r of [...mainRoots, ...fallback]) {
+          if (unvisited.has(r)) {
+            mark(r);
+            roots.push(r);
+          }
+        }
+        return roots;
+      }
+
+      function takeChildren(node, visited) {
+        const a = node.arrow;
+        const byPos = new Map();
+        for (const c of node.connections) {
+          byPos.set(`${c.arrow.globalX},${c.arrow.globalY}`, c);
+        }
+
+        let mask = 0;
+        const children = [];
+        const rels = getRelations(a.type);
+        for (let i = 0; i < rels.length; i++) {
+          const [tx, ty] = getTarget(
+            a.globalX,
+            a.globalY,
+            a.rotation,
+            a.flipped,
+            rels[i],
+          );
+          const child = byPos.get(`${tx},${ty}`);
+          if (!child || visited.has(child)) continue;
+          visited.add(child);
+          children.push(child);
+          mask |= 1 << i;
+        }
+        return { mask, children };
+      }
+
+      function collectSymbols(root, visited, symbols) {
+        visited.add(root);
+        const stack = [root];
+        while (stack.length) {
+          const node = stack.pop();
+          const { mask, children } = takeChildren(node, visited);
+          const a = node.arrow;
+          const meta = (a.flipped ? 1 : 0) | (a.rotation << 1) | (mask << 3);
+          symbols.push([a.type, meta]);
+          for (let i = children.length - 1; i >= 0; i--)
+            stack.push(children[i]);
+        }
+      }
+
+      function buildPalette(symbols) {
+        const counts = new Map();
+        for (const [t, m] of symbols) {
+          const key = `${t},${m}`;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+
+        const unique = Array.from(counts.keys()).map((k) =>
+          k.split(",").map(Number),
+        );
+        unique.sort((a, b) => {
+          const diff =
+            counts.get(`${b[0]},${b[1]}`) - counts.get(`${a[0]},${a[1]}`);
+          return diff !== 0 ? diff : a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1];
+        });
+
+        const bounds = [0, ESCAPE, ESCAPE + TWO_BYTE_RANKS, unique.length];
+        const palette = [];
+        const cmp = (a, b) => (a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]);
+
+        for (let i = 0; i < bounds.length - 1; i++) {
+          const slice = unique.slice(
+            bounds[i],
+            Math.min(bounds[i + 1], unique.length),
+          );
+          slice.sort(cmp);
+          palette.push(...slice);
+        }
+        return palette;
+      }
+
+      function graphv4Compress(gameMap) {
+        const graph = new Graph(gameMap);
+        if (!graph.nodes.size) return new Uint8Array(0);
+
+        const roots = getRoots(graph);
+        const dx = new ByteBuffer();
+        const dy = new ByteBuffer();
+        const symbols = [];
+        const visited = new Set();
+        let lastX = 0,
+          lastY = 0;
+
+        for (const r of roots) {
+          const x = r.arrow.globalX,
+            y = r.arrow.globalY;
+          dx.writeVarint32(zigzagEncode(x - lastX));
+          dy.writeVarint32(zigzagEncode(y - lastY));
+          lastX = x;
+          lastY = y;
+          collectSymbols(r, visited, symbols);
+        }
+
+        const palette = buildPalette(symbols);
+        const rankOf = new Map();
+        palette.forEach((sym, i) => rankOf.set(`${sym[0]},${sym[1]}`, i));
+
+        const head = new ByteBuffer();
+        head.writeVarint32(roots.length);
+        head.writeVarint32(palette.length);
+
+        const body = new ByteBuffer();
+        for (const s of symbols) {
+          const rank = rankOf.get(`${s[0]},${s[1]}`);
+          if (rank < ESCAPE) {
+            body.writeUint8(rank);
+          } else {
+            body.writeUint8(ESCAPE);
+            body.writeVarint32(rank - ESCAPE);
+          }
+        }
+
+        const hB = head.getBytes();
+        const dxB = dx.getBytes();
+        const dyB = dy.getBytes();
+        const tB = new Uint8Array(palette.map((p) => p[0]));
+        const mB = new Uint8Array(palette.map((p) => p[1]));
+        const bB = body.getBytes();
+
+        const total =
+          hB.length +
+          dxB.length +
+          dyB.length +
+          tB.length +
+          mB.length +
+          bB.length;
+        const res = new Uint8Array(total);
+        let off = 0;
+        for (const arr of [hB, dxB, dyB, tB, mB, bB]) {
+          res.set(arr, off);
+          off += arr.length;
+        }
+        return res;
+      }
+
+      function graphv4Decompress(data) {
+        const map = new GameMap();
+        if (!data || !data.length) return map;
+        const buf = new ByteBuffer(data);
+
+        const rootsCount = buf.readVarint32();
+        const paletteSize = buf.readVarint32();
+
+        const xs = [],
+          ys = [];
+        let cx = 0,
+          cy = 0;
+        for (let i = 0; i < rootsCount; i++) {
+          cx += zigzagDecode(buf.readVarint32());
+          xs.push(cx);
+        }
+        for (let i = 0; i < rootsCount; i++) {
+          cy += zigzagDecode(buf.readVarint32());
+          ys.push(cy);
+        }
+
+        const tTypes = [],
+          tMeta = [];
+        for (let i = 0; i < paletteSize; i++) tTypes.push(buf.readUint8());
+        for (let i = 0; i < paletteSize; i++) tMeta.push(buf.readUint8());
+
+        for (let i = 0; i < rootsCount; i++) {
+          const stack = [[xs[i], ys[i]]];
+          while (stack.length) {
+            const [curX, curY] = stack.pop();
+            let rank = buf.readUint8();
+            if (rank === ESCAPE) {
+              rank += buf.readVarint32();
+            }
+
+            const type = tTypes[rank];
+            const meta = tMeta[rank];
+            const flipped = Boolean(meta & 1);
+            const rotation = (meta >> 1) & 3;
+            const mask = meta >> 3;
+
+            const chunkX = Math.floor(curX / CHUNK_SIZE);
+            const localX = ((curX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            const chunkY = Math.floor(curY / CHUNK_SIZE);
+            const localY = ((curY % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+            map
+              .getOrCreateChunk(chunkX, chunkY)
+              .setArrow(
+                localX,
+                localY,
+                new Arrow(type, rotation, flipped, curX, curY),
+              );
+
+            const rels = getRelations(type);
+            const children = [];
+            for (let j = 0; j < rels.length; j++) {
+              if ((mask >> j) & 1) {
+                children.push(
+                  getTarget(curX, curY, rotation, flipped, rels[j]),
+                );
+              }
+            }
+            for (let j = children.length - 1; j >= 0; j--)
+              stack.push(children[j]);
+          }
+        }
+        return map;
+      }
+
+      // ==========================================
+      // 5. RAW LOAD & SAVE (Оригинальный формат)
+      // ==========================================
+      function _readUint16(data, offset) {
+        if (offset + 2 > data.length) throw new Error("Unexpected end of data");
+        const val = data[offset] | (data[offset + 1] << 8);
+        return [val, offset + 2];
+      }
+
+      function _writeUint16(arr, val) {
+        arr.push(val & 0xff, (val >> 8) & 0xff);
+      }
+
+      function _readChunkCoordinate(data, offset) {
+        let [val, newOffset] = _readUint16(data, offset);
+        if (val & 0x8000) {
+          val = -(val & 0x7fff);
+        }
+        return [val, newOffset];
+      }
+
+      function _writeChunkCoordinate(arr, val) {
+        if (val < 0) {
+          val = -val | 0x8000;
+        }
+        _writeUint16(arr, val);
+      }
+
+      function rawLoad(data) {
+        const gameMap = new GameMap();
+        if (data.length < 4) return gameMap;
+
+        let offset = 0;
+        let version;
+        [version, offset] = _readUint16(data, offset);
+        if (version !== 0)
+          throw new Error(`Unsupported save version: ${version}`);
+
+        let chunksCount;
+        [chunksCount, offset] = _readUint16(data, offset);
+
+        for (let i = 0; i < chunksCount; i++) {
+          let chunkX, chunkY;
+          [chunkX, offset] = _readChunkCoordinate(data, offset);
+          [chunkY, offset] = _readChunkCoordinate(data, offset);
+
+          const typesCount = data[offset] + 1;
+          offset += 1;
+
+          const chunk = gameMap.getOrCreateChunk(chunkX, chunkY);
+
+          for (let j = 0; j < typesCount; j++) {
+            const arrowTypeId = data[offset];
+            const typeCount = data[offset + 1] + 1;
+            offset += 2;
+
+            const arrowType =
+              arrowTypeId in ARROW_RELATIONS || arrowTypeId === 0
+                ? arrowTypeId
+                : ArrowType.EMPTY;
+
+            for (let k = 0; k < typeCount; k++) {
+              const position = data[offset];
+              const rotationByte = data[offset + 1];
+              offset += 2;
+
+              const localX = position & 0xf;
+              const localY = position >> 4;
+
+              const rotation = rotationByte & 0x3;
+              const flipped = Boolean(rotationByte & 0x4);
+
+              const globalX = chunkX * CHUNK_SIZE + localX;
+              const globalY = chunkY * CHUNK_SIZE + localY;
+
+              chunk.setArrow(
+                localX,
+                localY,
+                new Arrow(arrowType, rotation, flipped, globalX, globalY),
+              );
+            }
+          }
+        }
+        return gameMap;
+      }
+
+      function rawSave(gameMap) {
+        const data = [];
+        _writeUint16(data, 0);
+        _writeUint16(data, gameMap.chunks.size);
+
+        const sortedChunks = Array.from(gameMap.chunks.values()).sort(
+          (a, b) => {
+            return a.x !== b.x ? a.x - b.x : a.y - b.y;
+          },
+        );
+
+        for (const chunk of sortedChunks) {
+          _writeChunkCoordinate(data, chunk.x);
+          _writeChunkCoordinate(data, chunk.y);
+
+          const arrowsByType = new Map();
+          for (const arrow of chunk.arrows.values()) {
+            if (!arrowsByType.has(arrow.type)) arrowsByType.set(arrow.type, []);
+            arrowsByType.get(arrow.type).push(arrow);
+          }
+
+          data.push(arrowsByType.size - 1);
+
+          const sortedTypes = Array.from(arrowsByType.keys()).sort(
+            (a, b) => a - b,
+          );
+
+          for (const arrowType of sortedTypes) {
+            const arrows = arrowsByType.get(arrowType);
+            data.push(arrowType);
+            data.push(arrows.length - 1);
+
+            arrows.sort((a, b) =>
+              a.globalX !== b.globalX
+                ? a.globalX - b.globalX
+                : a.globalY - b.globalY,
+            );
+
+            for (const arrow of arrows) {
+              const localX = arrow.globalX - chunk.x * CHUNK_SIZE;
+              const localY = arrow.globalY - chunk.y * CHUNK_SIZE;
+
+              if (localX < 0 || localX >= CHUNK_SIZE)
+                throw new Error(`Invalid local X: ${localX}`);
+              if (localY < 0 || localY >= CHUNK_SIZE)
+                throw new Error(`Invalid local Y: ${localY}`);
+
+              const position = localX | (localY << 4);
+              const rotationByte =
+                arrow.rotation | ((arrow.flipped ? 1 : 0) << 2);
+
+              data.push(position);
+              data.push(rotationByte);
+            }
+          }
+        }
+        return new Uint8Array(data);
+      }
+
+      // ==========================================
+      // 6. UI HANDLERS & HELPERS
+      // ==========================================
+      function b64ToBytes(b64) {
+        const bin = atob(b64.trim());
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+      }
+
+      function bytesToB64(bytes) {
+        let bin = "";
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          bin += String.fromCharCode.apply(
+            null,
+            bytes.subarray(i, Math.min(i + 0x8000, bytes.length)),
+          );
+        }
+        return btoa(bin);
+      }
+
+      function setTab(tab) {
+        document.getElementById("compress-view").style.display =
+          tab === "compress" ? "flex" : "none";
+        document.getElementById("decompress-view").style.display =
+          tab === "decompress" ? "flex" : "none";
+        document.getElementById("tab-comp-btn").className =
+          "tab-btn " + (tab === "compress" ? "active" : "");
+        document.getElementById("tab-decomp-btn").className =
+          "tab-btn " + (tab === "decompress" ? "active" : "");
+      }
+
+      function processCompress() {
+        const stats = document.getElementById("comp-stats");
+        try {
+          const inputB64 = document.getElementById("comp-input").value.trim();
+          if (!inputB64) return;
+
+          const rawBytes = b64ToBytes(inputB64);
+          const gameMap = rawLoad(rawBytes);
+
+          const graphBytes = graphv4Compress(gameMap);
+          // Raw Deflate (wbits = -15, level = 9) идентично Python zlib compressobj(9, -15)
+          const compressed = pako.deflateRaw(graphBytes, { level: 9 });
+          const outputB64 = bytesToB64(compressed);
+
+          document.getElementById("comp-output").value = outputB64;
+          stats.className = "stats";
+          stats.innerText = `Было: ${rawBytes.length.toLocaleString()} B ➔ Стало: ${compressed.length.toLocaleString()} B (−${((1 - compressed.length / rawBytes.length) * 100).toFixed(1)}%)`;
+        } catch (err) {
+          stats.className = "error";
+          stats.innerText = "Ошибка: " + err.message;
+        }
+      }
+
+      function processDecompress() {
+        const stats = document.getElementById("decomp-stats");
+        try {
+          const inputB64 = document.getElementById("decomp-input").value.trim();
+          if (!inputB64) return;
+
+          const compressed = b64ToBytes(inputB64);
+          const graphBytes = pako.inflateRaw(compressed);
+          const gameMap = graphv4Decompress(graphBytes);
+
+          const rawBytes = rawSave(gameMap);
+          const outputB64 = bytesToB64(rawBytes);
+
+          document.getElementById("decomp-output").value = outputB64;
+          stats.className = "stats";
+          stats.innerText = `Успешно восстановлено (${rawBytes.length.toLocaleString()} B)`;
+        } catch (err) {
+          stats.className = "error";
+          stats.innerText = "Ошибка: " + err.message;
+        }
+      }
+
+      function copyToClipboard(id) {
+        const el = document.getElementById(id);
+        el.select();
+        navigator.clipboard.writeText(el.value);
+      }
+    </script>
+  </body>
+</html>
